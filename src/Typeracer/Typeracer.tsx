@@ -1,15 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import quotes from "./quotes.json";
-
-type Quote = {
-  quote: string;
-  movieName: string;
-};
-
-const randomQuote = (): Quote => {
-  const index = Math.floor(Math.random() * quotes.length);
-  return quotes[index];
-};
+import { Quote, randomQuote } from "./quotes";
+import StatsDisplay from "./stats_display";
+import { GameState } from "./game_state";
 
 const inputId = "typeracer-input";
 
@@ -18,6 +10,11 @@ const Typeracer = () => {
   const [text, setText] = useState<string>("");
   const [currentWord, setCurrentWord] = useState<string>("");
   const [wordIndex, setWordIndex] = useState<number>(0);
+
+  const [gameState, setGameState] = useState(GameState.WAITING);
+
+  const [startTime, setStartTime] = useState<number>(0);
+  const [endTime, setEndTime] = useState<number>(0);
 
   const quotesSplit = useMemo(() => {
     return quote?.quote.split(" ") || [];
@@ -49,9 +46,29 @@ const Typeracer = () => {
     }
   }, [currentWord, quotesSplit, text, wordIndex]);
 
+  //   useEffect(() => {
+  //     if (wordIndex === quotesSplit.length) {
+  //       setQuote(randomQuote());
+  //     }
+  //   }, [wordIndex, quotesSplit]);
+
   useEffect(() => {
-    if (wordIndex === quotesSplit.length) {
+    setGameState(GameState.PLAYING);
+  }, []);
+
+  useEffect(() => {
+    if (gameState === GameState.PLAYING) {
       setQuote(randomQuote());
+    }
+  }, [gameState]);
+
+  // we set gameState=VIEW_STATS when the player have finished typing
+  useEffect(() => {
+    const quoteFinished =
+      quotesSplit.length === wordIndex && quotesSplit.length !== 0;
+
+    if (quoteFinished) {
+      setGameState(GameState.VIEW_STATS);
     }
   }, [wordIndex, quotesSplit]);
 
@@ -84,9 +101,34 @@ const Typeracer = () => {
     [currentWord, correctGreenWord, text]
   );
 
+  //   useEffect(() => {
+  //     document.getElementById(inputId)?.focus();
+  //   }, []);
+
   useEffect(() => {
-    document.getElementById(inputId)?.focus();
-  }, []);
+    if (gameState === GameState.PLAYING) {
+      document.getElementById(inputId)?.focus(); // add this line
+      setQuote(randomQuote());
+      setStartTime(Date.now());
+    }
+    if (gameState === GameState.VIEW_STATS) {
+      setEndTime(Date.now());
+    }
+  }, [gameState]);
+
+  const nextQuote = () => {
+    setGameState(GameState.PLAYING);
+  };
+
+  useEffect(() => {
+    if (gameState === GameState.PLAYING) {
+      setQuote(randomQuote());
+      setStartTime(Date.now()); // add this line to an existing useEffect
+    }
+    if (gameState === GameState.VIEW_STATS) {
+      setEndTime(Date.now()); // add this line to an existing useEffect
+    }
+  }, [gameState]);
 
   return (
     <div className="px-20 py-5">
@@ -103,7 +145,18 @@ const Typeracer = () => {
         value={text}
         onChange={(e) => setText(e.target.value)}
         id={inputId}
+        disabled={gameState === GameState.VIEW_STATS}
       />
+
+      {quote && gameState === GameState.VIEW_STATS && (
+        <StatsDisplay
+          startTime={startTime}
+          endTime={endTime}
+          quote={quote}
+          numOfWords={quotesSplit.length}
+          onClickNextQuote={nextQuote}
+        />
+      )}
     </div>
   );
 };
